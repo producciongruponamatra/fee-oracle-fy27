@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>FEE Oracle FY27 · Dashboard Analítico</title>
+
+<!-- Tailwind CSS (CDN) -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<!-- Tipografías -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Inter+Tight:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<script>
+/* ============================================================
+   FEE ORACLE FY27 — Configuración Tailwind & tema
+   ============================================================ */
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        display: ['"Instrument Serif"', 'serif'],
+        sans:    ['"Inter Tight"', 'system-ui', 'sans-serif'],
+        mono:    ['"JetBrains Mono"', 'monospace'],
+      },
+      colors: {
+        ink:      '#0a0a0c',
+        panel:    '#111114',
+        elevated: '#16161b',
+        border:   '#23232b',
+        muted:    '#6b6b78',
+        text:     '#e8e8ec',
+        soft:     '#a8a8b4',
+        accent:   '#d4ff3f',    // verde lima eléctrico
+        accent2:  '#ff5b3f',    // coral
+        accent3:  '#5b8bff',    // azul eléctrico
+        accent4:  '#c084ff',    // violeta
+        good:     '#3fdc97',
+        bad:      '#ff4d6d',
+        warn:     '#ffb13f',
+      }
+    }
+  }
+};
+</script>
+
+<style>
+  :root {
+    --c-ink:#0a0a0c; --c-panel:#111114; --c-elev:#16161b; --c-border:#23232b;
+    --c-text:#e8e8ec; --c-soft:#a8a8b4; --c-muted:#6b6b78;
+    --c-accent:#d4ff3f; --c-accent2:#ff5b3f; --c-accent3:#5b8bff;
+    --c-accent4:#c084ff; --c-good:#3fdc97; --c-bad:#ff4d6d; --c-warn:#ffb13f;
+  }
+  html, body { background: var(--c-ink); color: var(--c-text); font-family:'Inter Tight',sans-serif; }
+  /* Textura sutil de fondo */
+  body::before {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:
+      radial-gradient(900px 600px at 10% -10%, rgba(212,255,63,0.06), transparent 60%),
+      radial-gradient(900px 600px at 110% 10%, rgba(91,139,255,0.05), transparent 60%),
+      radial-gradient(1200px 800px at 50% 120%, rgba(192,132,255,0.04), transparent 60%);
+  }
+  /* Grano */
+  body::after {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.025;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  main, header { position: relative; z-index: 1; }
+
+  .card {
+    background: linear-gradient(180deg, var(--c-panel) 0%, #0e0e12 100%);
+    border: 1px solid var(--c-border); border-radius: 18px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 20px 60px -30px rgba(0,0,0,0.7);
+    transition: transform .35s cubic-bezier(.2,.7,.2,1), border-color .35s, box-shadow .35s;
+  }
+  .card:hover {
+    border-color: #2e2e38;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 30px 80px -30px rgba(0,0,0,0.8);
+  }
+  .kpi:hover { transform: translateY(-2px); }
+  .kpi-num { font-family:'Instrument Serif', serif; letter-spacing:-0.02em; }
+  .pill {
+    display:inline-flex; align-items:center; gap:.4rem;
+    padding: .25rem .65rem; border-radius:999px; font-size:.7rem;
+    border:1px solid var(--c-border); background: rgba(255,255,255,0.02);
+    color: var(--c-soft); font-family:'JetBrains Mono', monospace; letter-spacing:.04em;
+  }
+  .dot { width:.45rem; height:.45rem; border-radius:99px; display:inline-block; }
+  .chip {
+    cursor:pointer; user-select:none;
+    padding: .35rem .8rem; border-radius: 999px;
+    border:1px solid var(--c-border); background:#0e0e12;
+    color: var(--c-soft); font-size:.78rem;
+    transition: all .2s; white-space:nowrap;
+  }
+  .chip:hover { color: var(--c-text); border-color:#3a3a44; }
+  .chip.active {
+    background: var(--c-accent); color:#0a0a0c; border-color: var(--c-accent);
+    font-weight: 500;
+  }
+  /* Estilos para selects nativos */
+  select, input[type=text], input[type=date] {
+    background:#0e0e12; color: var(--c-text); border:1px solid var(--c-border);
+    border-radius: 10px; padding: .5rem .8rem; font-size:.85rem; outline:none;
+    transition: border-color .2s;
+  }
+  select:focus, input:focus { border-color: var(--c-accent); }
+  select { appearance:none; -webkit-appearance:none; padding-right: 2.2rem;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23a8a8b4' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat:no-repeat; background-position: right .8rem center;
+  }
+
+  /* Botones */
+  .btn {
+    display:inline-flex; align-items:center; gap:.45rem;
+    padding: .5rem .9rem; border-radius:10px; font-size:.8rem;
+    border:1px solid var(--c-border); background:#0e0e12; color: var(--c-text);
+    cursor:pointer; transition: all .2s; font-weight:500;
+  }
+  .btn:hover { border-color:#3a3a44; transform: translateY(-1px); }
+  .btn-primary { background: var(--c-accent); color:#0a0a0c; border-color: var(--c-accent); }
+  .btn-primary:hover { background:#bef038; }
+
+  /* Tabla */
+  .table-wrap { max-height: 480px; overflow:auto; border-radius: 12px; }
+  table.dt { width:100%; border-collapse: separate; border-spacing: 0; font-size:.82rem; }
+  table.dt th {
+    position: sticky; top:0; background:#0e0e12; z-index:2;
+    text-align:left; padding: .65rem .8rem; font-weight:500;
+    color: var(--c-soft); font-size:.7rem; text-transform:uppercase; letter-spacing:.08em;
+    border-bottom:1px solid var(--c-border); white-space:nowrap; cursor:pointer;
+  }
+  table.dt th:hover { color: var(--c-text); }
+  table.dt td {
+    padding: .65rem .8rem; border-bottom:1px solid #1a1a20; color: var(--c-text);
+    white-space:nowrap; max-width: 260px; overflow:hidden; text-overflow:ellipsis;
+  }
+  table.dt tr:hover td { background: rgba(212,255,63,0.025); }
+  .status-ok { color: var(--c-good); }
+  .status-pen { color: var(--c-warn); }
+
+  /* Scrollbar */
+  *::-webkit-scrollbar { width:8px; height:8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background:#2a2a32; border-radius:99px; }
+  *::-webkit-scrollbar-thumb:hover { background:#3a3a44; }
+
+  /* Mini divisor decorativo */
+  .hairline { height:1px; background: linear-gradient(90deg, transparent, var(--c-border), transparent); }
+
+  /* Animación de aparición */
+  @keyframes rise { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
+  .rise { animation: rise .6s cubic-bezier(.2,.7,.2,1) both; }
+  .rise-1 { animation-delay: .05s; }
+  .rise-2 { animation-delay: .15s; }
+  .rise-3 { animation-delay: .25s; }
+  .rise-4 { animation-delay: .35s; }
+  .rise-5 { animation-delay: .45s; }
+
+  /* Indicador de carga inicial */
+  .ticker { font-family:'JetBrains Mono', monospace; font-size:.65rem; letter-spacing:.08em; }
+
+  /* Tabs */
+  .seg-btn {
+    padding:.4rem .85rem; font-size:.78rem; color: var(--c-soft); cursor:pointer;
+    border-radius: 8px; transition: all .2s;
+  }
+  .seg-btn.active { background: var(--c-elev); color: var(--c-text); }
+  .seg-wrap { display:inline-flex; gap:.25rem; padding: .25rem; background:#0e0e12; border:1px solid var(--c-border); border-radius:10px; }
+
+  canvas { max-width:100%; }
+</style>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+
+<body class="min-h-screen">
+
+<!-- ============= PASSWORD GATE ============= -->
+<div id="authGate" style="position:fixed;inset:0;background:#0a0a0c;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:'Inter Tight',system-ui,sans-serif">
+  <div style="text-align:center;max-width:380px;padding:40px">
+    <div style="width:48px;height:48px;background:#d4ff3f;border-radius:50%;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(212,255,63,0.3)">
+      <svg width="24" height="24" fill="none" stroke="#0a0a0c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+    </div>
+    <h2 style="color:#e8e8ec;font-size:1.4rem;margin:0 0 6px;letter-spacing:-0.02em">Dashboard FY27</h2>
+    <p style="color:#6b6b78;font-size:.8rem;margin:0 0 28px;letter-spacing:.04em">ORACLE · NÁMATRA · ACCESO RESTRINGIDO</p>
+    <input id="authPass" type="password" placeholder="Contraseña" autocomplete="off"
+      style="width:100%;padding:14px 18px;background:#111114;border:1px solid #23232b;border-radius:12px;color:#e8e8ec;font-size:.95rem;outline:none;text-align:center;letter-spacing:.15em;transition:border-color .2s"
+      onfocus="this.style.borderColor='#d4ff3f'" onblur="this.style.borderColor='#23232b'" />
+    <button id="authBtn" onclick="checkAuth()"
+      style="width:100%;margin-top:14px;padding:14px;background:#d4ff3f;color:#0a0a0c;border:none;border-radius:12px;font-size:.85rem;font-weight:600;cursor:pointer;letter-spacing:.08em;transition:background .2s"
+      onmouseover="this.style.background='#bef038'" onmouseout="this.style.background='#d4ff3f'">
+      INGRESAR
+    </button>
+    <p id="authError" style="color:#ff4d6d;font-size:.78rem;margin-top:14px;display:none">Contraseña incorrecta</p>
+  </div>
+</div>
+
+<script>
+// SHA-256 hash de la contraseña (no está en texto plano)
+const AUTH_HASH = '76095b04114d2f40fea00a7c67ffdc3d36225319986be64d589ed97ed91b468c';
+
+async function sha256(text) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function checkAuth() {
+  const input = document.getElementById('authPass').value;
+  const hash = await sha256(input);
+  if (hash === AUTH_HASH) {
+    document.getElementById('authGate').style.display = 'none';
+    sessionStorage.setItem('fy27_auth', 'ok');
+  } else {
+    document.getElementById('authError').style.display = 'block';
+    document.getElementById('authPass').style.borderColor = '#ff4d6d';
+    setTimeout(() => {
+      document.getElementById('authError').style.display = 'none';
+      document.getElementById('authPass').style.borderColor = '#23232b';
+    }, 2000);
+  }
+}
+
+// Enter para enviar
+document.addEventListener('DOMContentLoaded', () => {
+  // Si ya autenticó en esta sesión, saltar
+  if (sessionStorage.getItem('fy27_auth') === 'ok') {
+    document.getElementById('authGate').style.display = 'none';
+    return;
+  }
+  document.getElementById('authPass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkAuth();
+  });
+});
+</script>
+<!-- ============= END PASSWORD GATE ============= -->
+
+
+<!-- ============================================================
+     HEADER
+============================================================ -->
+<header class="border-b border-border/80">
+  <div class="max-w-[1480px] mx-auto px-5 lg:px-10 py-5 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+    <div class="rise rise-1">
+      <div class="flex items-center gap-3 mb-1">
+        <div class="w-2 h-2 bg-accent rounded-full" style="box-shadow:0 0 12px var(--c-accent)"></div>
+        <span class="ticker text-soft">FEE ORACLE / FY27 · JUN 2026 → MAY 2027</span>
+      </div>
+      <h1 class="font-display text-4xl lg:text-5xl leading-none tracking-tight">
+        Dashboard <span class="italic text-accent">analítico</span>
+      </h1>
+      <p class="text-soft text-sm mt-2 max-w-xl">
+        Análisis integral del FEE de Namatra · Oracle. Solicitudes, costos, presupuesto y servicios entregados a lo largo del año fiscal.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2 rise rise-2">
+      <span class="pill"><span class="dot bg-accent"></span>EN VIVO</span>
+      <span class="pill" id="pill-rango">12 MESES</span>
+      <span class="pill" style="background:rgba(34,197,94,.15);color:#22c55e;border:1px solid #22c55e;margin-left:8px;text-decoration:line-through" title="Deuda FY26 USD 5,264.27 fue saldada al iniciar FY27">DEUDA FY26 SALDADA</span>
+      <span class="pill" id="pill-registros">— REG.</span>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     FILTROS GLOBALES
+============================================================ -->
+<section class="border-b border-border/80 bg-panel/30 backdrop-blur">
+  <div class="max-w-[1480px] mx-auto px-5 lg:px-10 py-4">
+    <div class="flex flex-col lg:flex-row lg:items-center gap-4">
+      <div class="flex items-center gap-2 text-xs text-soft uppercase tracking-widest">
+        <span>Filtros</span><span class="text-muted">·</span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 flex-1">
+        <select id="f-pais" aria-label="País">
+          <option value="">Todos los países</option>
+        </select>
+        <select id="f-linea" aria-label="Línea de negocio">
+          <option value="">Todas las líneas</option>
+        </select>
+        <select id="f-tipo" aria-label="Tipo requerimiento">
+          <option value="">Todos los tipos</option>
+        </select>
+        <select id="f-status" aria-label="Estado">
+          <option value="">Todos los estados</option>
+        </select>
+        <select id="f-dif" aria-label="Dificultad">
+          <option value="">Toda dificultad</option>
+        </select>
+
+        <div class="flex items-center gap-2 ml-1">
+          <input type="date" id="f-desde" aria-label="Desde" />
+          <span class="text-muted text-xs">→</span>
+          <input type="date" id="f-hasta" aria-label="Hasta" />
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button class="btn" id="btn-reset" title="Limpiar filtros">↺ Limpiar</button>
+        <button class="btn" id="btn-csv" title="Exportar datos filtrados a CSV">⤓ CSV</button>
+      </div>
+    </div>
+
+    <!-- Chips de meses -->
+    <div class="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+      <span class="text-xs text-soft uppercase tracking-widest mr-2 shrink-0">Mes ·</span>
+      <div id="month-chips" class="flex gap-2"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     MAIN
+============================================================ -->
+<main class="max-w-[1480px] mx-auto px-5 lg:px-10 py-8 space-y-8">
+
+  <!-- KPIs -->
+  <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 rise rise-2">
+    <div class="card kpi p-5 cursor-pointer" data-kpi="ventas">
+      <div class="flex items-center justify-between mb-3">
+        <span class="ticker text-soft uppercase">Ventas Totales · Presupuesto</span>
+        <span class="dot bg-accent"></span>
+      </div>
+      <div class="kpi-num text-4xl lg:text-5xl" id="kpi-ventas">—</div>
+      <div class="text-xs text-soft mt-2" id="kpi-ventas-sub">Disponible FY27 · Miscellaneous · COP $46,219,148 / USD $5,264</div>
+    </div>
+
+    <div class="card kpi p-5 cursor-pointer" data-kpi="costos">
+      <div class="flex items-center justify-between mb-3">
+        <span class="ticker text-soft uppercase">Costos Totales</span>
+        <span class="dot bg-accent2"></span>
+      </div>
+      <div class="kpi-num text-4xl lg:text-5xl" id="kpi-costos">—</div>
+      <div class="text-xs text-soft mt-2" id="kpi-costos-sub">Costos por extras y urgencias</div>
+    </div>
+
+    <div class="card kpi p-5 cursor-pointer" data-kpi="ganancia">
+      <div class="flex items-center justify-between mb-3">
+        <span class="ticker text-soft uppercase">Ganancia Neta Real</span>
+        <span class="dot bg-good"></span>
+      </div>
+      <div class="kpi-num text-4xl lg:text-5xl" id="kpi-ganancia">—</div>
+      <div class="text-xs text-soft mt-2" id="kpi-ganancia-sub">Presupuesto − Costos</div>
+    </div>
+
+    <div class="card kpi p-5 cursor-pointer" data-kpi="solicitudes">
+      <div class="flex items-center justify-between mb-3">
+        <span class="ticker text-soft uppercase">Solicitudes</span>
+        <span class="dot bg-accent3"></span>
+      </div>
+      <div class="kpi-num text-4xl lg:text-5xl" id="kpi-soli">—</div>
+      <div class="text-xs text-soft mt-2" id="kpi-soli-sub">Trabajos registrados en el rango</div>
+    </div>
+  </section>
+
+  <!-- Gráficos principales -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 rise rise-3">
+
+    <!-- Bar: Ventas (presupuesto) vs Costos por mes -->
+    <div class="card p-5 lg:col-span-2">
+      <div class="flex items-center justify-between mb-1">
+        <div>
+          <h3 class="font-display text-2xl">Ventas <span class="italic text-accent">vs.</span> Costos</h3>
+          <p class="text-xs text-soft">Comparativa mensual entre presupuesto asignado y costos reales por servicio</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="seg-wrap" id="seg-ventas-cost">
+            <span class="seg-btn active" data-mode="mensual">Mensual</span>
+            <span class="seg-btn" data-mode="acumulado">Acumulado</span>
+          </div>
+          <button class="btn" data-export="chart-vc">⤓ PNG</button>
+        </div>
+      </div>
+      <div class="hairline my-3"></div>
+      <div class="h-[340px]"><canvas id="chart-vc"></canvas></div>
+    </div>
+
+    <!-- Doughnut: Distribución de stock (servicios entregados) por tipo -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-1">
+        <div>
+          <h3 class="font-display text-2xl">Distribución por servicio</h3>
+          <p class="text-xs text-soft">Composición del “stock” de solicitudes</p>
+        </div>
+        <button class="btn" data-export="chart-dist">⤓</button>
+      </div>
+      <div class="hairline my-3"></div>
+      <div class="h-[340px]"><canvas id="chart-dist"></canvas></div>
+    </div>
+  </section>
+
+  <!-- Segunda fila de gráficos -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 rise rise-4">
+
+    <!-- Stacked bar: solicitudes por país y mes -->
+    <div class="card p-5 lg:col-span-2">
+      <div class="flex items-center justify-between mb-1">
+        <div>
+          <h3 class="font-display text-2xl">Solicitudes por país</h3>
+          <p class="text-xs text-soft">Distribución geográfica por mes (apilada)</p>
+        </div>
+        <button class="btn" data-export="chart-pais">⤓ PNG</button>
+      </div>
+      <div class="hairline my-3"></div>
+      <div class="h-[320px]"><canvas id="chart-pais"></canvas></div>
+    </div>
+
+    <!-- Doughnut: dificultad / requerimiento -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-1">
+        <div>
+          <h3 class="font-display text-2xl">Dificultad &amp; urgencia</h3>
+          <p class="text-xs text-soft">Mix de complejidad operativa</p>
+        </div>
+        <div class="seg-wrap" id="seg-dif">
+          <span class="seg-btn active" data-mode="dif">Dificultad</span>
+          <span class="seg-btn" data-mode="req">Urgencia</span>
+        </div>
+      </div>
+      <div class="hairline my-3"></div>
+      <div class="h-[320px]"><canvas id="chart-dif"></canvas></div>
+    </div>
+  </section>
+
+  <!-- Tercera fila -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 rise rise-5">
+
+    <!-- Línea: presupuesto restante a lo largo del año -->
+    <div class="card p-5 lg:col-span-2">
+      <div class="flex items-center justify-between mb-1">
+        <div>
+          <h3 class="font-display text-2xl">Salud del presupuesto</h3>
+          <p class="text-xs text-soft">Presupuesto restante mes a mes — los valores negativos indican sobre-ejecución</p>
+        </div>
+        <button class="btn" data-export="chart-bud">⤓ PNG</button>
+      </div>
+      <div class="hairline my-3"></div>
+      <div class="h-[300px]"><canvas id="chart-bud"></canvas></div>
+    </div>
+
+    <!-- Top solicitantes -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-1">
+        <div>
+          <h3 class="font-display text-2xl">Top solicitantes</h3>
+          <p class="text-xs text-soft">Quién más pide trabajos</p>
+        </div>
+        <button class="btn" data-export="chart-top">⤓</button>
+      </div>
+      <div class="hairline my-3"></div>
+      <div class="h-[300px]"><canvas id="chart-top"></canvas></div>
+    </div>
+  </section>
+
+  <!-- Tabla -->
+  <section class="card p-5 rise rise-5">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-1">
+      <div>
+        <h3 class="font-display text-2xl">Registros de solicitudes</h3>
+        <p class="text-xs text-soft">Tabla dinámica · clic en encabezado para ordenar · búsqueda libre</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="text" id="tbl-search" placeholder="Buscar por código, detalle, solicitante…" class="w-72 max-w-full" />
+        <span class="pill" id="tbl-count">0</span>
+      </div>
+    </div>
+    <div class="hairline my-3"></div>
+    <div class="table-wrap">
+      <table class="dt">
+        <thead>
+          <tr>
+            <th data-sort="mes">Mes</th>
+            <th data-sort="cod" style="min-width:340px;max-width:480px">Código · Detalle</th>
+            <th data-sort="solicitante">Solicitante</th>
+            <th data-sort="pais">País</th>
+            <th data-sort="linea_negocio">Línea</th>
+            <th data-sort="tipo_req">Tipo</th>
+            <th data-sort="requerimiento">Urgencia</th>
+            <th data-sort="dificultad">Dificultad</th>
+            <th data-sort="fecha_solicitud">F. Solicitud</th>
+            <th data-sort="fecha_entrega">F. Entrega</th>
+            <th data-sort="status">Estado</th>
+            <th data-sort="costo" class="text-right">Costo (USD)</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="text-center pt-8 pb-12 text-xs text-muted">
+    <div class="hairline mb-6"></div>
+    FEE Oracle FY27 · Datos extraídos del libro <span class="font-mono">NAMATRA-FEE_ORACLE_FY27</span> · Hoja «JUNIO FY27» · alimentación en vivo desde Google Sheets
+  </footer>
+</main>
+
+<!-- ============================================================
+     DATOS EMBEBIDOS
+============================================================ -->
+<script id="payload" type="application/json">{"datos": [{"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6866", "num_videos": 3, "link": "", "solicitante": "GABI CORREA", "pais": "COLOMBIA", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-06", "fecha_entrega": "2026-05-06", "status": "ENTREGADO", "detalles": "6866 - VIDEOS KICK OFF V8 + ORACLE - GABI CORREA - ORACLE FEE MAYO", "costo": 0, "tipo_req": "Traducción y Subtitulos", "requerimiento": "Urgencias", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6869", "num_videos": 2, "link": "", "solicitante": "KENNETH CRUZ", "pais": "MÉXICO", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-07", "fecha_entrega": "2026-05-07", "status": "ENTREGADO", "detalles": "6869 - VIDEO GUSTAVO MOUSSALLI - KENNETH CRUZ - ORACLE FEE MAYO", "costo": 0, "tipo_req": "Traducción y Subtitulos", "requerimiento": "Urgencias", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6878", "num_videos": 1, "link": "", "solicitante": "EDUARDO LAM", "pais": "BRASIL", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-11", "fecha_entrega": "2026-05-15", "status": "ENTREGADO", "detalles": "6878 - VIDEO BIMBO PARTE 3 - EDUARDO LAM - ORACLE FEE MAYO", "costo": 0, "tipo_req": "Videos - Realización", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6879", "num_videos": 1, "link": "", "solicitante": "LEONARDO RIBEIRO", "pais": "BRASIL", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-11", "fecha_entrega": "2026-05-14", "status": "ENTREGADO", "detalles": "6879 - VIDEOS EVENTO SUITE CONNECT SP - LEONARDO RIBEIRO - ORACLE FEE MAYO", "costo": 0, "tipo_req": "Videos - Realización", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6880", "num_videos": 1, "link": "", "solicitante": "MARIA CAMILA LOPEZ", "pais": "COLOMBIA", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-12", "fecha_entrega": "", "status": "ENTREGADO", "detalles": "TRADUCCIÓN SIMULTÁNEA - MARIA CAMILA LOPEZ", "costo": 0, "tipo_req": "Traducción Simultánea Eventos", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6881", "num_videos": 1, "link": "", "solicitante": "MARIA CAMILA LOPEZ", "pais": "COLOMBIA", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-12", "fecha_entrega": "", "status": "ENTREGADO", "detalles": "TRADUCCIÓN SIMULTÁNEA - MARIA CAMILA LOPEZ", "costo": 0, "tipo_req": "Traducción Simultánea Eventos", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6884", "num_videos": 1, "link": "", "solicitante": "JULIANA POSADA", "pais": "COLOMBIA", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-12", "fecha_entrega": "", "status": "ENTREGADO", "detalles": "TRADUCCIÓN SIMULTÁNEA - JULIANA POSADA", "costo": 0, "tipo_req": "Traducción Simultánea Eventos", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6883", "num_videos": 2, "link": "", "solicitante": "LEONARDO RIBEIRO", "pais": "COLOMBIA", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-15", "fecha_entrega": "2026-05-18", "status": "ENTREGADO", "detalles": "6883 - VIDEO HISTORIA ORACLE - LEONARDO RIBEIRO - ORACLE FEE MAYO", "costo": 0, "tipo_req": "Videos - Realización", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6893", "num_videos": 5, "link": "", "solicitante": "EDUARDO LAM", "pais": "LAD", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-19", "fecha_entrega": "2026-05-25", "status": "ENTREGADO", "detalles": "6893 - VIDEO ORACLE LAD NEWS MAYO - EDUARDO LAM - ORACLE FEE MAYO", "costo": 0, "tipo_req": "Traducción y Subtitulos", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6882", "num_videos": 1, "link": "", "solicitante": "JULIANA POSADA", "pais": "LAD", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-12", "fecha_entrega": "2026-05-26", "status": "ENTREGADO", "detalles": "6882 - VIDEO LUIZ MEISLER IA Y CIBERSEGURIDAD - JULIANA POSADA - ORACLE FEE MAYO", "costo": 0, "tipo_req": "Videos - Realización", "requerimiento": "Normal", "dificultad": "Moderada"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6901", "num_videos": 1, "link": "", "solicitante": "JULIANA POSADA", "pais": "LAD", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-26", "fecha_entrega": "2026-06-02", "status": "ENTREGADO", "detalles": "6901 - VIDEO RESUMEN FY26 - JULIANA POSADA - ORACLE FEE MAYO", "costo": 0, "tipo_req": "Videos - Realización", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6902", "num_videos": 1, "link": "", "solicitante": "GABI CORREA", "pais": "BRASIL", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-26", "fecha_entrega": "2026-05-26", "status": "ENTREGADO", "detalles": "6902 - VIDEO PAB ISV LINKEDIN DIEGO - GABI CORREA - FEE MAYO", "costo": 0, "tipo_req": "Videos - Realización", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6906", "num_videos": 1, "link": "", "solicitante": "MAFE RONCANCIO", "pais": "COLOMBIA", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-27", "fecha_entrega": "2026-05-29", "status": "ENTREGADO", "detalles": "6906 - VIDEOS CAPSULAS MUNDIALISTAS COLOMBIA - MAFE RONCANCIO - ORACLE FEE MAYO", "costo": 0, "tipo_req": "Videos - Realización", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6908", "num_videos": 3, "link": "", "solicitante": "MAFE RONCANCIO", "pais": "COLOMBIA", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-05-29", "fecha_entrega": "", "status": "ENTREGADO", "detalles": "6908 - VIDEO ENTREVISTA AVAL TECH WEEK - MAFE RONCANCIO - ORACLE FEE MAYO", "costo": 0, "tipo_req": "Videos - Realización", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6914", "num_videos": 1, "link": "", "solicitante": "EDUARDO LAM", "pais": "BRASIL", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-06-03", "fecha_entrega": "", "status": "ENTREGADO", "detalles": "6914 - VIDEO SUBTITULADO FRITZ NELSON - EDUARDO LAM - ORACLE FEE JUNIO", "costo": 0, "tipo_req": "Traducción y Subtitulos", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6918", "num_videos": 1, "link": "", "solicitante": "ILENA FRANCO", "pais": "MÉXICO", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-06-04", "fecha_entrega": "", "status": "ENTREGADO", "detalles": "6918 - VIDEO EVENTO AT&T - ILENA FRANCO - ORACLE FEE JUNIO", "costo": 0, "tipo_req": "Videos - Realización", "requerimiento": "Normal", "dificultad": "Normal"}, {"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "cod": "6926", "num_videos": 1, "link": "", "solicitante": "EDUARDO LAM", "pais": "BRASIL", "linea_negocio": "Sin Línea", "fecha_solicitud": "2026-06-11", "fecha_entrega": "", "status": "EN EJECUCIÓN", "detalles": "6926 - VIDEO PODCAST TECHNOLATTE VICTOR PEÑA - EDUARDO LAM - ORACLE FEE JUNIO", "costo": 0, "tipo_req": "Traducción y Subtitulos", "requerimiento": "Normal", "dificultad": "Normal"}], "resumenes": [{"mes": "Junio", "periodo": "2026-06", "quarter": "Q1", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}, {"mes": "Julio", "periodo": "2026-07", "quarter": "Q1", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}, {"mes": "Agosto", "periodo": "2026-08", "quarter": "Q1", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}, {"mes": "Septiembre", "periodo": "2026-09", "quarter": "Q2", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}, {"mes": "Octubre", "periodo": "2026-10", "quarter": "Q2", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}, {"mes": "Noviembre", "periodo": "2026-11", "quarter": "Q2", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}, {"mes": "Diciembre", "periodo": "2026-12", "quarter": "Q3", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}, {"mes": "Enero", "periodo": "2027-01", "quarter": "Q3", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}, {"mes": "Febrero", "periodo": "2027-02", "quarter": "Q3", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}, {"mes": "Marzo", "periodo": "2027-03", "quarter": "Q4", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}, {"mes": "Abril", "periodo": "2027-04", "quarter": "Q4", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}, {"mes": "Mayo", "periodo": "2027-05", "quarter": "Q4", "costo_trabajo": 0.0, "presupuesto_total": 5264.0, "presupuesto_restante": 5264.0}]}</script>
+
+<script>
+/* ============================================================
+   FEE Oracle FY27 — Lógica del Dashboard
+   ============================================================ */
+
+// ---------- 1. Cargar payload ----------
+const PAYLOAD = JSON.parse(document.getElementById('payload').textContent);
+let ALL = [...PAYLOAD.datos]; window.ALL = ALL; window.render = null;
+const RESUMENES = PAYLOAD.resumenes;
+
+const MONTH_ORDER = ['Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre','Enero','Febrero','Marzo','Abril','Mayo'];
+
+// Paleta para gráficos
+const PALETTE = ['#d4ff3f','#ff5b3f','#5b8bff','#c084ff','#3fdc97','#ffb13f','#ff4d6d','#7ce8d5','#f7c548','#9ad7ff','#ffa3c7','#8fffb5'];
+const C_ACCENT  = '#d4ff3f';
+const C_ACCENT2 = '#ff5b3f';
+const C_ACCENT3 = '#5b8bff';
+const C_GOOD    = '#3fdc97';
+const C_BAD     = '#ff4d6d';
+const C_SOFT    = '#a8a8b4';
+const C_GRID    = 'rgba(255,255,255,0.06)';
+const C_TEXT    = '#e8e8ec';
+
+// Estado de filtros
+const STATE = {
+  pais:'', linea:'', tipo:'', status:'', dif:'',
+  mes: null,              // 'Junio' o null = todos
+  desde:'', hasta:'',
+  search:'',
+  sort:{ key:'fecha_solicitud', dir:'desc' },
+  modeVC:'mensual',
+  modeDif:'dif',
+};
+
+// Charts
+const CHARTS = {};
+
+// ---------- 2. Utilidades ----------
+const fmtUSD = n => new Intl.NumberFormat('en-US', {style:'currency', currency:'USD', maximumFractionDigits:0}).format(n||0);
+const fmtUSDc= n => new Intl.NumberFormat('en-US', {style:'currency', currency:'USD', maximumFractionDigits:2}).format(n||0);
+const fmtNum = n => new Intl.NumberFormat('en-US').format(n||0);
+
+function uniq(arr){ return [...new Set(arr.filter(Boolean))].sort(); }
+
+function buildSelect(id, items){
+  const sel = document.getElementById(id);
+  items.forEach(it => {
+    const o = document.createElement('option');
+    o.value = it; o.textContent = it;
+    sel.appendChild(o);
+  });
+}
+
+function applyFilters(rows){
+  return rows.filter(r=>{
+    if (STATE.pais   && r.pais   !== STATE.pais)   return false;
+    if (STATE.linea  && r.linea_negocio !== STATE.linea) return false;
+    if (STATE.tipo   && r.tipo_req !== STATE.tipo) return false;
+    if (STATE.status && r.status !== STATE.status) return false;
+    if (STATE.dif    && r.dificultad !== STATE.dif) return false;
+    if (STATE.mes    && r.mes    !== STATE.mes)    return false;
+    if (STATE.desde  && r.fecha_solicitud && r.fecha_solicitud < STATE.desde) return false;
+    if (STATE.hasta  && r.fecha_solicitud && r.fecha_solicitud > STATE.hasta) return false;
+    if (STATE.search){
+      const q = STATE.search.toLowerCase();
+      const hay = [r.cod, r.detalles, r.solicitante, r.pais, r.linea_negocio, r.tipo_req, r.status]
+        .map(x => (x||'').toString().toLowerCase()).join(' ');
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+// ---------- 3. Inicializar filtros ----------
+buildSelect('f-pais',   uniq(ALL.map(r=>r.pais)));
+buildSelect('f-linea',  uniq(ALL.map(r=>r.linea_negocio)));
+buildSelect('f-tipo',   uniq(ALL.map(r=>r.tipo_req)));
+buildSelect('f-status', uniq(ALL.map(r=>r.status)));
+buildSelect('f-dif',    uniq(ALL.map(r=>r.dificultad)));
+
+// Chips de mes
+const chipsWrap = document.getElementById('month-chips');
+['Todos', ...MONTH_ORDER].forEach(m=>{
+  const c = document.createElement('span');
+  c.className = 'chip' + (m==='Todos' ? ' active' : '');
+  c.textContent = m;
+  c.dataset.mes = m === 'Todos' ? '' : m;
+  c.addEventListener('click', ()=>{
+    chipsWrap.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    STATE.mes = c.dataset.mes || null;
+    render();
+  });
+  chipsWrap.appendChild(c);
+});
+
+// Listeners filtros
+['f-pais','f-linea','f-tipo','f-status','f-dif','f-desde','f-hasta'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', e=>{
+    const k = id.replace('f-','');
+    STATE[k==='pais'?'pais': k==='linea'?'linea': k==='tipo'?'tipo': k==='status'?'status': k==='dif'?'dif': k] = e.target.value;
+    render();
+  });
+});
+document.getElementById('btn-reset').addEventListener('click', ()=>{
+  Object.assign(STATE, {pais:'', linea:'', tipo:'', status:'', dif:'', mes:null, desde:'', hasta:'', search:''});
+  ['f-pais','f-linea','f-tipo','f-status','f-dif','f-desde','f-hasta','tbl-search'].forEach(id=>{
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  chipsWrap.querySelectorAll('.chip').forEach((x,i)=> x.classList.toggle('active', i===0));
+  render();
+});
+document.getElementById('tbl-search').addEventListener('input', e=>{
+  STATE.search = e.target.value; render();
+});
+
+// Segmentos
+document.querySelectorAll('#seg-ventas-cost .seg-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#seg-ventas-cost .seg-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    STATE.modeVC = b.dataset.mode;
+    renderChartVC();
+  });
+});
+document.querySelectorAll('#seg-dif .seg-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#seg-dif .seg-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    STATE.modeDif = b.dataset.mode;
+    renderChartDif();
+  });
+});
+
+// Sort headers
+document.querySelectorAll('table.dt th').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const k = th.dataset.sort; if (!k) return;
+    if (STATE.sort.key === k) STATE.sort.dir = STATE.sort.dir === 'asc' ? 'desc' : 'asc';
+    else { STATE.sort.key = k; STATE.sort.dir = 'asc'; }
+    renderTable();
+  });
+});
+
+// Exportadores
+document.getElementById('btn-csv').addEventListener('click', exportCSV);
+document.querySelectorAll('[data-export]').forEach(btn=>{
+  btn.addEventListener('click', ()=> exportChart(btn.dataset.export));
+});
+
+// ---------- 4. Chart defaults ----------
+Chart.defaults.font.family = '"Inter Tight", system-ui, sans-serif';
+Chart.defaults.color = C_SOFT;
+Chart.defaults.borderColor = C_GRID;
+Chart.defaults.plugins.tooltip.backgroundColor = '#0a0a0c';
+Chart.defaults.plugins.tooltip.titleColor = C_TEXT;
+Chart.defaults.plugins.tooltip.bodyColor  = C_TEXT;
+Chart.defaults.plugins.tooltip.borderColor = '#23232b';
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.padding = 12;
+Chart.defaults.plugins.tooltip.cornerRadius = 8;
+Chart.defaults.plugins.legend.labels.color = C_SOFT;
+Chart.defaults.plugins.legend.labels.boxWidth = 10;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+
+// ---------- 5. KPIs ----------
+function renderKPIs(rows){
+  // Disponible FY27 = USD 5264.0 (deuda FY26 SALDADA) — concepto: Miscellaneous
+  // Si hay filtro de mes, mostramos presupuesto de ese mes
+  let ventas, costos, ganancia;
+  if (STATE.mes){
+    const r = RESUMENES.find(x=>x.mes===STATE.mes);
+    ventas = r ? r.presupuesto_total : 0;
+    costos = rows.reduce((s,x)=> s + (x.costo||0), 0);
+    ganancia = ventas - costos;
+    document.getElementById('kpi-ventas-sub').textContent = `Presupuesto disponible — ${STATE.mes}`;
+  } else {
+    // Total FY27: presupuesto base USD 5264.0 (COP 46,219,148), deuda histórica FY26 SALDADA
+    const presupInicial = RESUMENES[0]?.presupuesto_total || 0;
+    ventas = presupInicial;
+    costos = rows.reduce((s,x)=> s + (x.costo||0), 0);
+    ganancia = ventas - costos;
+    document.getElementById('kpi-ventas-sub').textContent = 'Disponible FY27 · Miscellaneous · COP $46,219,148 / USD $5,264';
+  }
+
+  document.getElementById('kpi-ventas').textContent   = fmtUSD(ventas);
+  document.getElementById('kpi-costos').textContent   = fmtUSD(costos);
+  const ge = document.getElementById('kpi-ganancia');
+  ge.textContent = fmtUSD(ganancia);
+  ge.style.color = ganancia < 0 ? 'var(--c-bad)' : 'var(--c-text)';
+  document.getElementById('kpi-ganancia-sub').textContent =
+    ganancia < 0 ? `Sobre-ejecución de ${fmtUSD(Math.abs(ganancia))}` : 'Presupuesto − Costos';
+
+  document.getElementById('kpi-soli').textContent = fmtNum(rows.length);
+  document.getElementById('kpi-soli-sub').textContent = `${fmtNum(rows.reduce((s,r)=>s+(r.num_videos||0),0))} entregables / videos`;
+
+  document.getElementById('pill-registros').textContent = `${rows.length} REG.`;
+}
+
+// ---------- 6. Gráfico Ventas vs Costos ----------
+function renderChartVC(){
+  const rows = applyFilters(ALL);
+  const labels = MONTH_ORDER;
+  const costosMes = MONTH_ORDER.map(m => rows.filter(r=>r.mes===m).reduce((s,r)=>s+(r.costo||0),0));
+  // "Ventas" = presupuesto total mensual (lo que tiene disponible cada mes)
+  const ventasMes = MONTH_ORDER.map(m=>{
+    const r = RESUMENES.find(x=>x.mes===m); return r ? r.presupuesto_total : 0;
+  });
+
+  let dataVentas = ventasMes, dataCostos = costosMes;
+  if (STATE.modeVC === 'acumulado'){
+    let a=0, b=0;
+    dataCostos = costosMes.map(v => (b += v));
+    // Para ventas en modo acumulado, usamos el presupuesto inicial como techo constante
+    const inicial = RESUMENES[0]?.presupuesto_total || 0;
+    dataVentas = MONTH_ORDER.map(()=> inicial);
+  }
+
+  if (CHARTS.vc) CHARTS.vc.destroy();
+  CHARTS.vc = new Chart(document.getElementById('chart-vc'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: STATE.modeVC === 'acumulado' ? 'Presupuesto FY26 (techo)' : 'Presupuesto disponible',
+          data: dataVentas,
+          backgroundColor: STATE.modeVC === 'acumulado' ? 'rgba(212,255,63,0.10)' : 'rgba(212,255,63,0.7)',
+          borderColor: C_ACCENT, borderWidth: 1.5, borderRadius: 6,
+          type: STATE.modeVC === 'acumulado' ? 'line' : 'bar',
+          tension: .3, pointRadius: 3, pointBackgroundColor: C_ACCENT, fill: STATE.modeVC==='acumulado',
+        },
+        {
+          label: STATE.modeVC === 'acumulado' ? 'Costos acumulados' : 'Costos del mes',
+          data: dataCostos,
+          backgroundColor: 'rgba(255,91,63,0.75)',
+          borderColor: C_ACCENT2, borderWidth: 1.5, borderRadius: 6,
+          type: STATE.modeVC === 'acumulado' ? 'line' : 'bar',
+          tension: .3, pointRadius: 3, pointBackgroundColor: C_ACCENT2, fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: { position:'top', align:'end' },
+        tooltip: {
+          callbacks: { label: c => `${c.dataset.label}: ${fmtUSDc(c.parsed.y)}` }
+        }
+      },
+      scales: {
+        x: { grid:{ color: C_GRID }, ticks:{ color: C_SOFT } },
+        y: { grid:{ color: C_GRID }, ticks:{ color: C_SOFT, callback:v=>fmtUSD(v) } }
+      }
+    }
+  });
+}
+
+// ---------- 7. Doughnut servicios ----------
+function renderChartDist(){
+  const rows = applyFilters(ALL);
+  const counts = {};
+  rows.forEach(r => { counts[r.tipo_req] = (counts[r.tipo_req]||0) + 1; });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const labels = sorted.map(x=>x[0]);
+  const values = sorted.map(x=>x[1]);
+
+  if (CHARTS.dist) CHARTS.dist.destroy();
+  CHARTS.dist = new Chart(document.getElementById('chart-dist'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: labels.map((_,i)=>PALETTE[i%PALETTE.length]),
+        borderColor: '#0a0a0c', borderWidth: 3, hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{
+        legend:{ position:'right', labels:{ boxWidth:8, font:{size:11} } },
+        tooltip:{
+          callbacks:{
+            label: c => {
+              const total = c.dataset.data.reduce((a,b)=>a+b,0);
+              const p = ((c.parsed/total)*100).toFixed(1);
+              return `${c.label}: ${c.parsed} (${p}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ---------- 8. Stacked bar países × mes ----------
+function renderChartPais(){
+  const rows = applyFilters(ALL);
+  const paises = uniq(rows.map(r=>r.pais));
+  const datasets = paises.map((p,i)=>({
+    label: p,
+    data: MONTH_ORDER.map(m => rows.filter(r=>r.mes===m && r.pais===p).length),
+    backgroundColor: PALETTE[i%PALETTE.length],
+    borderRadius: 4, borderSkipped: false, stack:'s1',
+  }));
+  if (CHARTS.pais) CHARTS.pais.destroy();
+  CHARTS.pais = new Chart(document.getElementById('chart-pais'), {
+    type:'bar',
+    data: { labels: MONTH_ORDER, datasets },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ position:'top', align:'end' } },
+      scales: {
+        x:{ stacked:true, grid:{ color:C_GRID }, ticks:{ color:C_SOFT } },
+        y:{ stacked:true, grid:{ color:C_GRID }, ticks:{ color:C_SOFT } }
+      }
+    }
+  });
+}
+
+// ---------- 9. Doughnut dificultad / urgencia ----------
+function renderChartDif(){
+  const rows = applyFilters(ALL);
+  const field = STATE.modeDif === 'dif' ? 'dificultad' : 'requerimiento';
+  const counts = {};
+  rows.forEach(r=>{ counts[r[field]] = (counts[r[field]]||0)+1; });
+  const labels = Object.keys(counts);
+  const values = Object.values(counts);
+
+  if (CHARTS.dif) CHARTS.dif.destroy();
+  CHARTS.dif = new Chart(document.getElementById('chart-dif'),{
+    type:'doughnut',
+    data:{
+      labels,
+      datasets:[{
+        data: values,
+        backgroundColor: labels.map((_,i)=> PALETTE[(i+2)%PALETTE.length]),
+        borderColor:'#0a0a0c', borderWidth:3, hoverOffset:8,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{
+        legend:{ position:'bottom', labels:{ boxWidth:8 } },
+        tooltip:{
+          callbacks:{
+            label: c => {
+              const tot = c.dataset.data.reduce((a,b)=>a+b,0);
+              return `${c.label}: ${c.parsed} (${((c.parsed/tot)*100).toFixed(1)}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ---------- 10. Línea presupuesto ----------
+function renderChartBud(){
+  const labels = MONTH_ORDER;
+  // Tomar valores del resumen
+  const restantes = MONTH_ORDER.map(m=>{
+    const r = RESUMENES.find(x=>x.mes===m); return r ? r.presupuesto_restante : null;
+  });
+  const costosMes = MONTH_ORDER.map(m=>{
+    const r = RESUMENES.find(x=>x.mes===m); return r ? r.costo_trabajo : 0;
+  });
+
+  if (CHARTS.bud) CHARTS.bud.destroy();
+  CHARTS.bud = new Chart(document.getElementById('chart-bud'),{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {
+          label:'Presupuesto restante',
+          data: restantes,
+          borderColor: C_ACCENT, backgroundColor:'rgba(212,255,63,0.10)',
+          fill:true, tension:.35, borderWidth:2,
+          pointRadius:4, pointBackgroundColor: C_ACCENT, pointBorderColor:'#0a0a0c',
+        },
+        {
+          label:'Costo del mes',
+          data: costosMes,
+          borderColor: C_ACCENT2, backgroundColor:'transparent',
+          tension:.35, borderWidth:2, borderDash:[4,4],
+          pointRadius:3, pointBackgroundColor: C_ACCENT2,
+        },
+        {
+          label:'Línea 0',
+          data: labels.map(()=>0),
+          borderColor:'rgba(255,77,109,0.4)', borderDash:[2,4], borderWidth:1,
+          pointRadius:0, fill:false
+        }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ position:'top', align:'end' },
+        tooltip:{ callbacks:{ label: c => `${c.dataset.label}: ${fmtUSDc(c.parsed.y)}` } }
+      },
+      scales:{
+        x:{ grid:{ color: C_GRID }, ticks:{ color: C_SOFT } },
+        y:{ grid:{ color: C_GRID }, ticks:{ color: C_SOFT, callback:v=>fmtUSD(v) } }
+      }
+    }
+  });
+}
+
+// ---------- 11. Top solicitantes ----------
+function renderChartTop(){
+  const rows = applyFilters(ALL);
+  const counts = {};
+  rows.forEach(r=>{ counts[r.solicitante] = (counts[r.solicitante]||0)+1; });
+  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const labels = top.map(x=>x[0]);
+  const values = top.map(x=>x[1]);
+
+  if (CHARTS.top) CHARTS.top.destroy();
+  CHARTS.top = new Chart(document.getElementById('chart-top'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        label:'Solicitudes',
+        data: values,
+        backgroundColor: 'rgba(91,139,255,0.8)',
+        borderColor: C_ACCENT3, borderWidth:1.5, borderRadius:5,
+      }]
+    },
+    options:{
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ grid:{ color: C_GRID }, ticks:{ color: C_SOFT } },
+        y:{ grid:{ display:false }, ticks:{ color: C_TEXT, font:{size:11} } }
+      }
+    }
+  });
+}
+
+// ---------- 12. Tabla ----------
+function renderTable(){
+  const rows = applyFilters(ALL).slice();
+  const {key, dir} = STATE.sort;
+  rows.sort((a,b)=>{
+    let A = a[key], B = b[key];
+    if (key === 'cod') { A = +A; B = +B; }
+    if (key === 'costo') { A = +A||0; B = +B||0; }
+    if (A == null) A = '';
+    if (B == null) B = '';
+    if (A < B) return dir === 'asc' ? -1 : 1;
+    if (A > B) return dir === 'asc' ?  1 :-1;
+    return 0;
+  });
+
+  const body = document.getElementById('tbl-body');
+  body.innerHTML = rows.map(r=>`
+    <tr>
+      <td>${r.mes}</td>
+      <td class="text-soft" style="font-size:12px;line-height:1.4;min-width:340px;max-width:480px;white-space:normal" title="${(r.detalles||r.cod).replace(/"/g,'&quot;')}">${r.detalles || r.cod}</td>
+      <td>${r.solicitante}</td>
+      <td>${r.pais}</td>
+      <td>${r.linea_negocio}</td>
+      <td>${r.tipo_req}</td>
+      <td>${r.requerimiento}</td>
+      <td>${r.dificultad}</td>
+      <td class="font-mono text-soft">${r.fecha_solicitud||'—'}</td>
+      <td class="font-mono text-soft">${r.fecha_entrega||'—'}</td>
+      <td class="${r.status==='ENTREGADO'?'status-ok':'status-pen'}">${r.status}</td>
+      <td class="text-right font-mono">${r.costo ? fmtUSDc(r.costo) : '—'}</td>
+    </tr>
+  `).join('');
+  document.getElementById('tbl-count').textContent = `${rows.length} REGISTROS`;
+}
+
+// ---------- 13. Exportar ----------
+function exportChart(canvasId){
+  const cvs = document.getElementById(canvasId);
+  if (!cvs) return;
+  // Crear PNG con fondo oscuro
+  const off = document.createElement('canvas');
+  off.width = cvs.width; off.height = cvs.height;
+  const ctx = off.getContext('2d');
+  ctx.fillStyle = '#0a0a0c';
+  ctx.fillRect(0,0,off.width, off.height);
+  ctx.drawImage(cvs, 0, 0);
+  const link = document.createElement('a');
+  link.download = `fee-oracle-${canvasId}.png`;
+  link.href = off.toDataURL('image/png');
+  link.click();
+}
+
+function exportCSV(){
+  const rows = applyFilters(ALL);
+  const headers = ['mes','cod','solicitante','pais','linea_negocio','tipo_req','requerimiento','dificultad','fecha_solicitud','fecha_entrega','status','costo','num_videos','detalles'];
+  const escape = v => {
+    if (v == null) return '';
+    const s = String(v).replace(/"/g,'""');
+    return /[",\n;]/.test(s) ? `"${s}"` : s;
+  };
+  const lines = [headers.join(',')].concat(rows.map(r => headers.map(h=>escape(r[h])).join(',')));
+  const blob = new Blob(["\ufeff" + lines.join('\n')], {type:'text/csv;charset=utf-8'});
+  const link = document.createElement('a');
+  link.download = `fee-oracle-fy26-${new Date().toISOString().slice(0,10)}.csv`;
+  link.href = URL.createObjectURL(blob);
+  link.click();
+}
+
+// ---------- 14. Render maestro ----------
+window.render = function render(){
+  const rows = applyFilters(ALL);
+  renderKPIs(rows);
+  renderChartVC();
+  renderChartDist();
+  renderChartPais();
+  renderChartDif();
+  renderChartBud();
+  renderChartTop();
+  renderTable();
+}
+
+// Primera ejecución
+render();
+</script>
+
+<!-- LIVE LOADER FROM GOOGLE SHEETS CSV -->
+<script>
+(function() {
+  const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3hAWGp4y0LOOOvqGxoNE5fqvnTBeamX9-KXW_t_TfVuasEq_HGWwf5cNs3HWZfw/pub?gid=1624278917&single=true&output=csv";
+  
+  function setStatus(text, color) {
+    const badge = document.getElementById('live-status-badge');
+    if (!badge) return;
+    badge.textContent = text;
+    badge.style.color = color;
+    badge.style.borderColor = color;
+    badge.style.background = color === '#22c55e' ? 'rgba(34,197,94,.1)' : 
+                              color === '#F5AC4D' ? 'rgba(245,172,77,.1)' :
+                              'rgba(154,154,154,.1)';
+  }
+  
+  function createStatusBadge() {
+    const badge = document.createElement('span');
+    badge.id = 'live-status-badge';
+    badge.className = 'pill';
+    badge.style.cssText = 'background:rgba(245,172,77,.1);color:#F5AC4D;border:1px solid #F5AC4D;margin-left:8px;font-size:10px;letter-spacing:2px;padding:3px 8px;border-radius:2px;display:inline-block;font-weight:600';
+    badge.textContent = '● CONECTANDO...';
+    
+    const pillRango = document.getElementById('pill-rango');
+    if (pillRango && pillRango.parentNode) {
+      pillRango.parentNode.insertBefore(badge, pillRango.nextSibling);
+    }
+  }
+  
+  // Parseo de fecha colombiana DD/MM/YYYY → ISO YYYY-MM-DD
+  function parseFecha(s) {
+    if (!s) return '';
+    s = String(s).trim();
+    // Si ya es ISO
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split('T')[0];
+    // DD/MM/YYYY o D/M/YYYY
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (m) {
+      const d = m[1].padStart(2,'0');
+      const mo = m[2].padStart(2,'0');
+      return m[3] + '-' + mo + '-' + d;
+    }
+    return s;
+  }
+  
+  // Determinar mes/periodo/quarter a partir de fecha de solicitud
+  function deriveMesPeriodoQuarter(fechaSolStr) {
+    const f = parseFecha(fechaSolStr);
+    if (!f || f.length < 7) return { mes:'Junio', periodo:'2026-06', quarter:'Q1' };
+    const year = parseInt(f.slice(0,4));
+    const month = parseInt(f.slice(5,7));
+    const mesNames = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const mesName = mesNames[month] || 'Junio';
+    const periodo = year + '-' + String(month).padStart(2,'0');
+    // Quarter Oracle FY: Q1=Jun-Ago, Q2=Sep-Nov, Q3=Dic-Feb, Q4=Mar-May
+    let quarter = 'Q1';
+    if ([6,7,8].includes(month)) quarter = 'Q1';
+    else if ([9,10,11].includes(month)) quarter = 'Q2';
+    else if ([12,1,2].includes(month)) quarter = 'Q3';
+    else quarter = 'Q4';
+    return { mes: mesName, periodo, quarter };
+  }
+  
+  function csvRowToRecord(row) {
+    const cod = String(row[0] || '').trim();
+    const numVideos = parseFloat(String(row[1] || '').replace(/\D/g,'')) || 1;
+    const link = String(row[2] || '').trim();
+    const solicitante = String(row[3] || '').trim();
+    const pais = String(row[4] || '').trim();
+    const lineaNeg = String(row[5] || '').trim();
+    const fechaSol = parseFecha(String(row[6] || ''));
+    const fechaEntr = parseFecha(String(row[7] || ''));
+    const status = String(row[8] || '').trim();
+    const detalles = String(row[9] || '').trim();
+    
+    // Parsear costo: puede venir como "$1,234.56" o "1234.56"
+    let costoStr = String(row[10] || '0').trim().replace(/[$\s]/g, '');
+    // Si tiene tanto . como ,: el . es separador de miles, , es decimal
+    // Si solo tiene ,: es decimal
+    // Si solo tiene .: es decimal (formato US)
+    if (costoStr.includes('.') && costoStr.includes(',')) {
+      costoStr = costoStr.replace(/\./g,'').replace(',','.');
+    } else if (costoStr.includes(',') && !costoStr.includes('.')) {
+      costoStr = costoStr.replace(',','.');
+    }
+    const costo = parseFloat(costoStr) || 0;
+    
+    let tipoReq = String(row[11] || '').trim();
+    // Renombrar Entregables → Miscellaneous
+    tipoReq = tipoReq.replace(/Entregables/gi, 'Miscellaneous');
+    
+    const requerimiento = String(row[12] || 'Normal').trim() || 'Normal';
+    const dificultad = String(row[13] || 'Normal').trim() || 'Normal';
+    
+    // Filtros de validez
+    if (!cod || cod.length < 2) return null;
+    if (/^[a-z]/i.test(cod) && cod.length > 8) return null; // probable header de texto
+    if (cod === 'COD/PROYECTO' || cod === '#' || cod.toLowerCase().includes('cod')) return null;
+    if (!solicitante && !detalles && !tipoReq) return null;
+    
+    const meta = deriveMesPeriodoQuarter(fechaSol);
+    
+    return {
+      mes: meta.mes,
+      periodo: meta.periodo,
+      quarter: meta.quarter,
+      cod: cod,
+      num_videos: numVideos,
+      link: link,
+      solicitante: solicitante || "Sin Solicitante",
+      pais: pais || "Sin País",
+      linea_negocio: lineaNeg || "Sin Línea",
+      fecha_solicitud: fechaSol,
+      fecha_entrega: fechaEntr,
+      status: status || "Sin Status",
+      detalles: detalles,
+      costo: costo,
+      tipo_req: tipoReq || "Sin Tipo",
+      requerimiento: requerimiento,
+      dificultad: dificultad
+    };
+  }
+  
+  function loadLive() {
+    setStatus('● CARGANDO...', '#F5AC4D');
+    
+    if (typeof Papa === 'undefined') {
+      console.warn('PapaParse no disponible');
+      setStatus('● OFFLINE', '#9A9A9A');
+      return;
+    }
+    
+    Papa.parse(CSV_URL, {
+      download: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        try {
+          if (!results.data || results.data.length < 2) {
+            throw new Error('CSV vacío');
+          }
+          
+          // Saltar headers: buscar primera fila con COD numérico de 4-5 dígitos
+          let startRow = 0;
+          for (let i = 0; i < Math.min(20, results.data.length); i++) {
+            const firstCell = String((results.data[i][0] || '')).trim();
+            if (/^[0-9]{4,5}$/.test(firstCell)) {
+              startRow = i;
+              break;
+            }
+          }
+          
+          const records = [];
+          for (let i = startRow; i < results.data.length; i++) {
+            const rec = csvRowToRecord(results.data[i]);
+            if (rec) records.push(rec);
+          }
+          
+          if (records.length === 0) {
+            throw new Error('Sin registros válidos');
+          }
+          
+          // Reemplazar ALL (mutar el array, no reasignar)
+          if (window.ALL && Array.isArray(window.ALL)) {
+            window.ALL.length = 0;
+            records.forEach(r => window.ALL.push(r));
+            
+            // Re-render
+            if (typeof window.render === 'function') {
+              window.render();
+            }
+          }
+          
+          setStatus('● EN VIVO · ' + records.length + ' REG', '#22c55e');
+          console.log('✅ Live OK:', records.length, 'registros');
+          
+        } catch(err) {
+          console.error('Live error:', err);
+          setStatus('● ESTÁTICO', '#9A9A9A');
+        }
+      },
+      error: function(err) {
+        console.error('CSV fetch error:', err);
+        setStatus('● ESTÁTICO', '#9A9A9A');
+      }
+    });
+  }
+  
+  function init() {
+    createStatusBadge();
+    setTimeout(loadLive, 500);
+    
+    // Auto-refresh cada 10 segundos para actualizaciones en vivo
+    setInterval(loadLive, 10000);
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+
+</body>
